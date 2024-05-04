@@ -11,8 +11,8 @@ const TodoItem = new mongoose.Schema({
     },
     status: {
         type: 'String',
-        enum: ['pending', 'completed'],
-        default: 'pending' // Optional: Set a default value
+        enum: ["pending", "completed"],
+        default: "pending" // Optional: Set a default value
     }
 })
 

@@ -10,8 +10,8 @@ route.get("/todos",allTodos);
 route.get("/todos/:id",specificTodoItem);
 route.put("/todos/:id",updateTodoItem);
 route.delete("/todos/:id",deleteTodoItem);
-route.get("/odos/filter?status=:status",getTodosByStatus);
-route.post("/odos/upload:",uploadTodoFromCSV);
-route.get("/todos/download:",downloadTodoListAsCSV);
+route.get("/todos/filter/:status",getTodosByStatus); 
+route.post("/todos/upload",uploadTodoFromCSV);
+route.get("/todos-list/fetch",downloadTodoListAsCSV);
 
 module.exports = route;

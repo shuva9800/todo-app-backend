@@ -3,13 +3,21 @@ const app = express();
 require("dotenv").config();
 const {dbconnect} = require("./config/database")
 const todolistRoute = require("./routs/todorouts");
+const bodyParser = require('body-parser');
+const fileUpload = require('express-fileupload');
 
+
+app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(fileUpload());
 
 //database connection
 dbconnect();
-app.use(express.json());
+
 //port 
 const PORT = process.env.PORT || 4000;
+
 app.listen(PORT, ()=>{
     console.log(`app started successfully at port ${PORT}`);
 });

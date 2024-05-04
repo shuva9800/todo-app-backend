@@ -2,11 +2,14 @@ const todo = require("../model/todomodel");
 const csv = require('csv-parser');
 const fs = require('fs');
 const { Parser } = require('json2csv');
+const { createObjectCsvWriter } = require('csv-writer');
+
 
 //add new todo
 exports.addTodo = async (req,res)=>{
   try{
     const {name,description, status} =req.body;
+    console.log(req);
     //validation
     if(!name || !description){
         return res.status(400).json({
@@ -153,10 +156,11 @@ exports.deleteTodoItem = async (req,res)=>{
 }
 //find by status
 exports.getTodosByStatus = async (req,res)=>{
+    
     try{
         // Extract the status parameter from the query string
-        const { status } = req.query;
-
+        const {status}  = req.params; 
+        
         // Validate the status parameter
         if (!status) {
             return res.status(400).json({
@@ -164,10 +168,10 @@ exports.getTodosByStatus = async (req,res)=>{
                  message: 'Status parameter is required.' 
                 });
         }
-
+       console.log(status)
         // Query the database to find todo list items with the specified status
-        const filteredTodos = await todo.find({ status });
-
+        const filteredTodos = await todo.find({status});
+        console.log("the  todo is base on status", filteredTodos)
         // Send the filtered todo list items as the response
         res.status(200).json({ 
             success: true,
@@ -185,38 +189,50 @@ exports.getTodosByStatus = async (req,res)=>{
 
 //todo upload by csv
 exports.uploadTodoFromCSV = async (req, res) => {
+
+   
+
     try {
         // Check if a file was uploaded
-        if (!req.file) {
+        if (!req.files) {
             return res.status(400).json({ success: false, message: 'No file uploaded.' });
         }
 
+        const file = req.files.file;
+        file.mv(`uploads/${file.name}`, (err) => {
+            if (err) {
+              return res.status(500).send(err);
+            }
+        
         // Read the uploaded CSV file
         const todoItems = [];
-        fs.createReadStream(req.file.path)
-            .pipe(csv())
+        fs.createReadStream(`uploads/${file.name}`)
+      .pipe(csv())
             .on('data', (data) => {
-                // Process each row of the CSV file and create todo item objects
-                const todoItem = {
-                    name: data.name,
-                    description: data.description, 
-                    status: data.status || 'pending' 
-                };
-                todoItems.push(todoItem);
+                // const todoItem = {
+                //     name: data.name,
+                //     description: data.description, 
+                //     status: data.status || 'pending' 
+                // };
+                    todoItems.push(data);
+                
             })
             .on('end', async () => {
                 // Save the parsed todo items to the database
                 await todo.insertMany(todoItems);
 
                 // Delete the uploaded file after processing
-                fs.unlinkSync(req.file.path);
+                fs.unlinkSync(`uploads/${file.name}`);
 
                 // Send success response
                 res.status(200).json({ 
                     success: true, 
-                    message: 'Todo items uploaded successfully.' 
+                    message: 'Todo items uploaded successfully.',
+                    data:todoItems 
                 });
+                // res.json(todoItems);
             });
+        });
     } catch (error) {
         console.error('Error uploading todo items from CSV:', error);
         res.status(500).json({ 
@@ -228,25 +244,40 @@ exports.uploadTodoFromCSV = async (req, res) => {
 
 // Download the todo list in CSV format
 exports.downloadTodoListAsCSV = async (req, res) => {
+    
     try {
-        // Fetch the todo list from the database
-        const todoList = await todo.find();
+        // Fetch data from MongoDB using your model
+        const data = await todo.find({}).lean();
 
-        // Convert todo list data to CSV format using json2csv
-        const json2csvParser = new Parser();
-        const csvData = json2csvParser.parse(todoList);
+        // Specify the CSV file path
+        const csvFilePath = 'output.csv';
 
-        // Set response headers for CSV download
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', 'attachment; filename="todo_list.csv"');
+        // Create a CSV writer
+        const csvWriter = createObjectCsvWriter({
+            path: csvFilePath,
+            header: [
+                { id: 'name', title: 'Name' },
+                { id: 'description', title: 'Description' },
+                { id: 'status', title: 'Status' },
+                // Add headers for other fields if needed
+            ]
+        });
 
-        // Send the CSV data as the response
-        res.status(200).send(csvData);
-    } catch (error) {
-        console.error('Error downloading todo list as CSV:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Internal server error.'
-         });
+        // Write data to the CSV file
+        await csvWriter.writeRecords(data);
+
+        // Send the CSV file as a response
+        res.download(csvFilePath, 'output.csv', (err) => {
+            if (err) {
+                console.error('Error sending CSV file', err);
+                res.status(500).send('Error exporting data to CSV');
+            } else {
+                console.log('CSV file sent successfully');
+            }
+        });
+    } catch (err) {
+        console.error('Error exporting data to CSV', err);
+        res.status(500).send('Error exporting data to CSV');
     }
 };
+
